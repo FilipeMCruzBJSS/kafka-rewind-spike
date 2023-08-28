@@ -1,0 +1,78 @@
+version: '3'
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.3.0
+    hostname: zookeeper
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+  broker:
+    image: confluentinc/cp-kafka:7.3.0
+    container_name: broker
+    ports:
+      - "9092:9092"
+      - "9097:9097"
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://:9092,PLAINTEXT_INTERNAL://broker:29092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+  kafka-ui:
+    container_name: kafka-ui
+    image: provectuslabs/kafka-ui:latest
+    ports:
+      - 8000:8080
+    environment:
+      DYNAMIC_CONFIG_ENABLED: 'true'
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: broker:29092
+      KAFKA_CLUSTERS_0_METRICS_PORT: 9997
+  kafka-init-topics:
+    image: confluentinc/cp-kafka:7.3.0
+    depends_on:
+      - broker
+      - zookeeper
+    command: "bash -c 'echo Waiting for Kafka to be ready... && \
+               cub kafka-ready -b broker:29092 1 30 && \
+               kafka-topics --create --topic data --partitions 4 --replication-factor 1 --bootstrap-server broker:29092'"
+  rewind-reader-0: # waits for 30s and then rewinds 10s, starting at the instant 20
+    build:
+      context: rewind-reader
+      dockerfile: ../infra/Dockerfile
+    command: -p=0 -w=60 -o=10
+    depends_on:
+      - kafka-init-topics
+  rewind-reader-1: # doesn't wait and rewinds 30s, should start at the instant 0
+    build:
+      context: rewind-reader
+      dockerfile: ../infra/Dockerfile
+    command: -p=1 -w=0 -o=30
+    depends_on:
+      - kafka-init-topics
+  rewind-reader-2: # waits for 10s and then rewinds 10s, starting at the instant 0
+    build:
+      context: rewind-reader
+      dockerfile: ../infra/Dockerfile
+    command: -p=2 -w=10 -o=10
+    depends_on:
+      - kafka-init-topics
+  rewind-reader-3: # simple example
+    build:
+      context: rewind-reader
+      dockerfile: ../infra/Dockerfile
+    command: -p=3
+    depends_on:
+      - kafka-init-topics
+  kafka-writer:
+    build:
+      context: kafka-writer
+      dockerfile: ../infra/Dockerfile
+    depends_on:
+      - kafka-init-topics
+    restart: on-failure
