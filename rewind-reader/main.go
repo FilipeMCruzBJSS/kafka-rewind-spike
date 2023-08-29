@@ -32,9 +32,14 @@ func Read(partition int, topic string, timestampOffsetSeconds int, sleep int) {
 		Brokers:   []string{"broker:9092"},
 		Topic:     topic,
 		Partition: partition,
+		//GroupID:   "data-readers", //if the GroupID is set we can't rewind
 	})
-	r.SetOffsetAt(context.Background(), start)
+	err := r.SetOffsetAt(context.Background(), start)
 
+	if err != nil {
+		fmt.Printf("failed to rewind: %s\n", err)
+		return
+	}
 
 	for {
 		m, err := r.ReadMessage(context.Background())

@@ -2,11 +2,9 @@
 
 This small project evaluates how easy it is to rewind a kafka topic partition by offset or timestamp.
 
-Related to a project for bet365.
-
 ## Description
 
-This project uses the `github.com/segmentio/kafka-go` library internally. That library exposes a function on the `Reader` struct, [SetOffsetAt](https://pkg.go.dev/github.com/segmentio/kafka-go#Reader.c), that accomplishes what the related spike was looking for.
+This project uses the `github.com/segmentio/kafka-go` library internally. That library exposes a function on the `Reader` struct, [SetOffsetAt](https://pkg.go.dev/github.com/segmentio/kafka-go#Reader.SetOffsetAt), that accomplishes what the related spike was looking for.
 
 The project creates four kafka readers, one for each partition, each one has a different behavior as explained here:
 
@@ -24,3 +22,7 @@ Each container behavior can be seen in their logs with `docker compose logs <con
 ```sh
 docker compose up --build -d
 ```
+
+## Outcome
+
+The function `SetOffsetAt` works as expected, only when no Consumer Group is defined.
